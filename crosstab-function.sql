@@ -44,19 +44,9 @@ def update_if(dct, key, new_value, op, result=True):
     if current_value is None or op(value, current_value) == result:
         dct[key] = new_value
 
-def update_output_table(output_table, row_headers, colname, value):
+def update_output_table(output_table, colname, value, row_num):
     pg_value = plpy.quote_literal(value) if isinstance(value, basestring) else value
-    sql = 'update %s set %s = %s where ' % (output_table, plpy.quote_ident(colname), 
-                                            pg_value)
-    conditions = []
-    for index, row_header in enumerate(row_headers):
-        col_name = plpy.quote_ident(row_header)
-        quoted_value = quote_if_needed(rowkey[index])
-        if quoted_value == NULL_TOKEN:
-            conditions.append('%s is %s' % (col_name, quoted_value))
-        else:
-            conditions.append('%s = %s' % (col_name, quoted_value))
-    sql += ' and '.join(conditions)
+    sql = 'update %s set %s = %s where row_num = %s' % (output_table, plpy.quote_ident(colname), pg_value, row_num)
     plpy.execute(sql)
 
 
@@ -68,7 +58,9 @@ if not table_exists(input_table):
 if value_action not in VALID_ACTIONS:
     plpy.error('%s is not a recognised action' % value_action)
 
-# load the data into a dict
+
+# *** Load the data into a dict ***
+
 count_dict = defaultdict(int)
 sum_dict = defaultdict(float)
 total_dict = defaultdict(float)
@@ -76,6 +68,7 @@ min_dict = dict()
 max_dict = dict()
 categories_seen = set()
 rowkeys_seen = set()
+rowkey_to_rownum = dict()
 do_total = value_action in ('count', 'sum')
     
 cursor = plpy.cursor('select * from %s' % plpy.quote_ident(input_table))
@@ -110,6 +103,8 @@ while True:
 plpy.notice('seen %s summary rows and %s categories' % (len(rowkeys_seen),
                                                         len(categories_seen)))
 
+# *** Create the output table ***
+
 # get the columns types
 coltype_dict = dict()
 input_type_sql = 'select * from %s where false' % plpy.quote_ident(input_table)
@@ -129,6 +124,7 @@ else:
     sql_parts.append('create temp table %s (' % plpy.quote_ident(output_table))
 
 cols = []
+cols.append('row_num bigint not null')  # have the 'row_num' as a primary key
 for row_header in row_headers:
     cols.append('%s %s' % (plpy.quote_ident(row_header), coltype_dict[row_header]))
 
@@ -143,6 +139,8 @@ for col in sorted(categories_seen):
 if do_total:
     cols.append('%s %s' % (TOTAL_COL, cat_type))
 
+cols.append('constraint %s_pk primary key (row_num)' % output_table)
+
 sql_parts.append(',\n'.join(cols))
 if keep_result:
     sql_parts.append(')')
@@ -150,21 +148,29 @@ else:
     sql_parts.append(') on commit drop')
 plpy.execute('\n'.join(sql_parts))
 
+
+# *** Create the rows in the output table ***
+
 dict_map = {'count': count_dict, 'sum': sum_dict, 'min': min_dict, 'max': max_dict }
 value_dict = dict_map[value_action]
-for rowkey in rowkeys_seen:
+for row_num, rowkey in enumerate(sorted(rowkeys_seen)):
     sql = 'insert into %s values (' % plpy.quote_ident(output_table)
-    sql += ', '.join([quote_if_needed(part) for part in rowkey])
+    sql += ', '.join([str(row_num)] + [quote_if_needed(part) for part in rowkey])
     sql += ')'
     plpy.execute(sql)
+    rowkey_to_rownum[rowkey] = row_num
+    
 
+# *** Put the data into the output table
 if do_total:
     for rowkey, value in total_dict.iteritems():
-        update_output_table(output_table, row_headers, TOTAL_COL, value)
+        row_num = rowkey_to_rownum[rowkey]
+        update_output_table(output_table, TOTAL_COL, value, row_num)
         
 for (rowkey, category), value in value_dict.iteritems():
     # put in cateogry value
     colname = NULL_CATEGORY_NAME if category is None else category
-    update_output_table(output_table, row_headers, colname, value)
+    row_num = rowkey_to_rownum[rowkey]
+    update_output_table(output_table, colname, value, row_num)
 
 $$ language plpythonu
