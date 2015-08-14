@@ -7,7 +7,7 @@ create or replace function
   value_action text, input_table text, output_table text, keep_result boolean)
 returns void as
 $$
-## version 0.9 - last modified 2015-08-11 ##
+## version 0.9.1 - last modified 2015-08-14 ##
 # imports
 from collections import defaultdict
 import operator
@@ -16,6 +16,7 @@ import string
 # constants
 BATCH_SIZE = 100
 VALID_ACTIONS = ('count', 'sum', 'min', 'max')
+NULL_TOKEN = 'NULL'
 NULL_CATEGORY_NAME = 'NULL_CATEGORY'
 TOTAL_COL = 'total'
 
@@ -31,7 +32,11 @@ def make_rowkey(row):
     return tuple([row[header] for header in row_headers])
 
 def quote_if_needed(value):
-    return plpy.quote_literal(value) if isinstance(value, basestring) else str(value)
+    if value is None:
+        return NULL_TOKEN
+    if isinstance(value, basestring):
+        return plpy.quote_literal(value)
+    return str(value)
 
 # assumes None is never a value in the dct
 def update_if(dct, key, new_value, op, result=True):
@@ -45,8 +50,12 @@ def update_output_table(output_table, row_headers, colname, value):
                                             pg_value)
     conditions = []
     for index, row_header in enumerate(row_headers):
-        conditions.append('%s = %s' % (plpy.quote_ident(row_header),
-                                       quote_if_needed(rowkey[index])))
+        col_name = plpy.quote_ident(row_header)
+        quoted_value = quote_if_needed(rowkey[index])
+        if quoted_value == NULL_TOKEN:
+            conditions.append('%s is %s' % (col_name, quoted_value))
+        else:
+            conditions.append('%s = %s' % (col_name, quoted_value))
     sql += ' and '.join(conditions)
     plpy.execute(sql)
 
