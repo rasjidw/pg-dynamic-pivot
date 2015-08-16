@@ -49,6 +49,11 @@ def update_output_table(output_table, colname, value, row_num):
     sql = 'update %s set %s = %s where row_num = %s' % (output_table, plpy.quote_ident(colname), pg_value, row_num)
     plpy.execute(sql)
 
+def str_or_none(value):
+    if value is None:
+        return None
+    return str(value)
+
 
 # -----------------
 
@@ -79,7 +84,7 @@ while True:
     for row in rows:
         rowkey = make_rowkey(row)
         rowkeys_seen.add(rowkey)
-        category = row[category_field]           
+        category = str_or_none(row[category_field])
         value = row[value_field]
         dctkey = (rowkey, category)
 
