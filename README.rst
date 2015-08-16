@@ -24,7 +24,8 @@ A simple example:
       ('B', 'Active', 4), ('B', 'Inactive', 5),
                           ('C', 'Inactive', 7);
 
-    SELECT make_pivot_table('{"section"}', 'status', 'val', 'sum', 'test_data', 'tmp_data_out', False);
+    SELECT make_pivot_table('{"section"}', 'status', 'val', 'sum',
+                            'test_data', 'tmp_data_out', False);
 
     SELECT * FROM tmp_data_out ORDER BY row_num;
 
