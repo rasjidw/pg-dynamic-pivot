@@ -153,7 +153,8 @@ plpy.execute('\n'.join(sql_parts))
 
 dict_map = {'count': count_dict, 'sum': sum_dict, 'min': min_dict, 'max': max_dict }
 value_dict = dict_map[value_action]
-for row_num, rowkey in enumerate(sorted(rowkeys_seen)):
+for row_num_minus_one, rowkey in enumerate(sorted(rowkeys_seen)):
+    row_num = row_num_minus_one + 1
     sql = 'insert into %s values (' % plpy.quote_ident(output_table)
     sql += ', '.join([str(row_num)] + [quote_if_needed(part) for part in rowkey])
     sql += ')'
