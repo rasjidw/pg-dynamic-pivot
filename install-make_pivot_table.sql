@@ -7,7 +7,7 @@ create or replace function
   value_action text, input_table text, output_table text, keep_result boolean)
 returns void as
 $$
-## version 0.9.1 - last modified 2015-08-14 ##
+## version 0.9.2 - last modified 2015-08-16 ##
 # imports
 from collections import defaultdict
 import operator
