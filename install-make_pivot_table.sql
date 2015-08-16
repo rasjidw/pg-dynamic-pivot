@@ -1,12 +1,15 @@
-﻿-- make_pivot_table
--- python version 0.9
--- last edited 2015-08-11 
-
 create or replace function
- make_pivot_table(row_headers text[], category_field text, value_field text,
-  value_action text, input_table text, output_table text, keep_result boolean)
+ make_pivot_table(
+  row_headers text[],
+  category_field text,
+  value_field text,
+  value_action text,
+  input_table text,
+  output_table text,
+  keep_result boolean)
 returns void as
 $$
+
 ## Dynamic pivot table function for Postgresql
 ##
 ## Copyright (c) 2015, Rasjid Wilcox
@@ -124,9 +127,9 @@ while True:
         categories_seen.add(category)
             
         if value_action == 'count':
-	    count_dict[dctkey] += 1
-	    total_dict[rowkey] += 1
-	if value_action == 'sum':
+            count_dict[dctkey] += 1
+            total_dict[rowkey] += 1
+        if value_action == 'sum':
             sum_dict[dctkey] += value
             total_dict[rowkey] += value
         if value_action == 'min':
